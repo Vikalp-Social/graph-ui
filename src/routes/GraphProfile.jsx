@@ -17,7 +17,7 @@ import cise from "cytoscape-cise";
 
 Cytoscape.use(cise);
 
-function GraphProfile({postAndContent}) {
+function GraphProfile() {
     const {id} = useParams();
     const {currentUser, isLoggedIn} = useContext(UserContext);
     const {setError, setToast} = useErrors();
@@ -40,8 +40,12 @@ function GraphProfile({postAndContent}) {
     const [elements, setElements] = useState([{ data: { id: "You", label: "You" } }]);
     const [layout, setLayout] = useState({
         name: "cise",
-        clusters: [],
-        boundingBox: { x1: 0, y1: 0, w: 600, h: 600 },
+        clusters: [], // This will be populated dynamically
+        boundingBox: { x1: 0, y1: 0, w: 400, h: 400 }, // Reduce bounding box size
+        nodeSeparation: 20, // Adjust separation between nodes in clusters
+        idealInterClusterEdgeLengthCoefficient: 0.1, // Decrease to bring clusters closer
+        clusterSeparation: 40, // Reduce cluster separation
+        allowNodesInsideCircle: false, // Ensure proper node placement
     });
     const theme = localStorage.getItem("selectedTheme");
 
@@ -60,79 +64,100 @@ function GraphProfile({postAndContent}) {
         document.title = `${user.display_name || user.username} (@${user.username === user.acct ? `${user.username}@${currentUser.instance}` : user.acct}) | Vikalp`;
     });
 
-    // useEffect(() => {
-    //     //resolve postAndContent
-    //     if (containerRef.current) {
-    //         const { width, height } = containerRef.current.getBoundingClientRect();
-    //         var cleanIdAndContent = {};
+    const mockData = {
+        category1: {
+          post1: "Post content 1",
+          post2: "Post content 2",
+        },
+        category2: {
+            post2: "Post content 2",
+            post3: "Post content 3",
+        },
+      };
 
-    //         Object.keys(statuses).forEach((account) => {
-    //         const temp = account.content
-    //             .replace(/(<([^>]+)>)/gi, "")
-    //             .replace("&#39;", "'");
-    //         if (temp) {
-    //             cleanIdAndContent[account.id] = temp;
-    //         }
-    //         });
-
-    //         // if (Object.keys(cleanIdAndContent).length !== 0) {
-    //         //     fetch("https://graph.vikalp.social", {
-    //         //         method: "POST",
-    //         //         body: JSON.stringify(cleanIdAndContent),
-    //         //         headers: {
-    //         //         "Content-type": "application/json; charset=UTF-8",
-    //         //         },
-    //         //     })
-    //         //     .then((response) => response.json())
-    //         //     .then((data) => {
-    //         //     var newelements = [
-    //         //         {
-    //         //         data: {
-    //         //             id: "No Posts From The User !",
-    //         //             label: "No Posts From The User !",
-    //         //         },
-    //         //         },
-    //         //     ];
-
-    //             Object.keys(cleanIdAndContent).forEach((id) => {
-    //                 newelements.push({
-    //                 data: { id: id, label: trimString(cleanIdAndContent[id], 100) },
-    //                 });
-    //             });
-
-    //             let clusterList = [];
-    //             Object.keys(data).forEach((category) => {
-    //                 let cluster = [];
-    //                 newelements.push(
-    //                 { data: { id: category, label: category }, classes: "category" }
-    //                 // { data: { source: "You", target: category } }
-    //                 );
-
-    //                 Object.keys(data[category]).forEach((postId) => {
-    //                 cluster.push(postId);
-    //                 newelements.push({
-    //                     data: { source: category, target: postId },
-    //                 });
-    //                 });
-    //                 clusterList.push(cluster);
-    //             });
-    //             if (newelements.length > 1) {
-    //                 newelements.splice(0, 1);
-    //             }
-    //             setElements([...newelements]);
-    //             setLayout({
-    //                 name: "cise",
-    //                 clusters: clusterList,
-    //                 boundingBox: { x1: 0, y1: 0, w: 600, h: 600 },
-    //             });
-    //             setLoading(false);
-    //             })
-    //             .catch((err) => {
-    //             console.log(err.message);
-    //             });
-    //         }
-    //     }
-    // }, [statuses]);
+      useEffect(() => {
+        const cleanAndProcessData = async () => {
+            try {
+                const cleanIdAndContent = {};
+    
+                // Clean statuses
+                statuses.forEach((status) => {
+                    const temp = status.content
+                        .replace(/(<([^>]+)>)/gi, "") // Remove HTML tags
+                        .replace("&#39;", "'"); // Decode HTML entity
+                    if (temp) {
+                        cleanIdAndContent[status.id] = temp;
+                    }
+                });
+    
+                if (Object.keys(cleanIdAndContent).length !== 0) {
+                    const data = mockData; // Replace with actual server call later
+    
+                    const newelements = [];
+                    const clusterList = [];
+    
+                    // Add cleaned posts as nodes
+                    // Object.keys(cleanIdAndContent).forEach((id) => {
+                    //     newelements.push({
+                    //         data: { id: id, label: trimString(cleanIdAndContent[id], 100) },
+                    //     });
+                    // });
+    
+                    // Add category nodes and edges
+                    Object.keys(data).forEach((category) => {
+                        const cluster = [];
+                        newelements.push({
+                            data: { id: category, label: category },
+                            classes: "category",
+                        });
+    
+                        Object.keys(data[category]).forEach((postId) => {
+                            // Ensure the post node exists
+                            if (!newelements.some((el) => el.data.id === postId)) {
+                                newelements.push({
+                                    data: { id: postId, label: trimString(data[category][postId], 100) },
+                                });
+                            }
+    
+                            cluster.push(postId);
+    
+                            // Add edge only if both source and target exist
+                            if (
+                                newelements.some((el) => el.data.id === category) &&
+                                newelements.some((el) => el.data.id === postId)
+                            ) {
+                                newelements.push({
+                                    data: { source: category, target: postId },
+                                });
+                            }
+                        });
+    
+                        clusterList.push(cluster);
+                    });
+    
+                    setElements([...newelements]);
+                    setLayout({
+                            name: "cise",
+                            clusters: clusterList, // This will be populated dynamically
+                            boundingBox: { x1: 0, y1: 0, w: 400, h: 400 }, // Reduce bounding box size
+                            nodeSeparation: 20, // Adjust separation between nodes in clusters
+                            idealInterClusterEdgeLengthCoefficient: 0.1, // Decrease to bring clusters closer
+                            clusterSeparation: 50, // Reduce cluster separation
+                            allowNodesInsideCircle: false, // Ensure proper node placement
+                    });
+                }
+            } catch (error) {
+                console.error("Error processing data:", error.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+    
+        if (statuses && statuses.length > 0) {
+            setLoading(true);
+            cleanAndProcessData();
+        }
+    }, [statuses]);
     
     const cytoscapeStylesheet = [
         {
@@ -222,7 +247,34 @@ function GraphProfile({postAndContent}) {
             selector: "edge.semitransp",
             style: { opacity: 0.2 },
         },
-        ];
+    ];
+    
+    const adjustClusterPositions = (cy) => {
+        const categories = cy.$('.category'); // Select all categories
+        let xOffset = 0; // Initial horizontal offset to position clusters
+        const verticalOffset = 100; // Slight vertical gap between clusters
+    
+        categories.forEach((category, index) => {
+            const clusterNodes = category.connectedNodes(); // Get nodes connected to the category
+            const clusterBoundingBox = clusterNodes.boundingBox();
+    
+            // Calculate cluster center and apply the offset
+            const xCenter = xOffset + clusterBoundingBox.w / 2;
+            const yCenter = clusterBoundingBox.y1 + clusterBoundingBox.h / 2;
+    
+            // Set position for the category node
+            category.position({ x: xCenter, y: yCenter });
+    
+            // Adjust node positions based on the cluster's bounding box
+            clusterNodes.positions((node, i) => ({
+                x: node.position().x + xOffset, // Apply the horizontal offset
+                y: node.position().y + verticalOffset * (index % 2 === 0 ? 1 : -1), // Alternate vertical offset to reduce overlap
+            }));
+    
+            // Increment horizontal offset for next cluster, ensuring there's no overlap
+            xOffset += clusterBoundingBox.w + layout.clusterSeparation; // Increase space between clusters
+        });
+    };
     
 
     // function to fetch the profile details of the user
@@ -351,20 +403,48 @@ function GraphProfile({postAndContent}) {
                         <span className="profileText"><div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} /></span>
                     </div>
                 </div>
-            
-                {/* <h2 style={{textAlign: "center"}}>POSTS</h2>
-                {statuses.length ? statuses.map(status => {
-                    return (status.in_reply_to_account_id === null && <Status 
-                        key={status.id}
-                        instance={currentUser.instance}
-                        reblogged={status.reblog ? true : false}
-                        post={status.reblog ? status.reblog : status}
-                        postedBy={status.account}
-                        isUserProfile={id === currentUser.id}
-                        mentions={status.mentions}
-                        delete={handleDelete}
-                    />)
-                }) : <p>No Posts Yet!</p>} */}
+
+                <CytoscapeComponent
+                    cy={(cy) => {
+                        cy.fit();
+                        cy.center();
+                        // cy.pan({ x: 300, y: 300 });
+
+                        cy.on("tap", "node", function (e) {
+                        // if (!cy.data("tapListenerAdded")) {
+                        //     cy.data("tapListenerAdded", true);
+                        //     const node = e.target;
+                        //     navigate(`${paths.profile}/${node.id()}`);
+                        // }
+                        });
+
+                        cy.on("mouseout", "node", function (e) {
+                            var sel = e.target;
+                            cy.elements().removeClass("semitransp");
+                            sel.removeClass("highlight").outgoers().removeClass("highlight");
+                        });
+
+                        cy.on("mouseover", "node", function (e) {
+                        var sel = e.target;
+                        cy.elements()
+                        .difference(sel.outgoers())
+                        .not(sel)
+                        .addClass("semitransp");
+                        sel.addClass("highlight").outgoers().addClass("highlight");
+                    });
+
+
+                    }}
+                    layout={layout}
+                    elements={elements}
+                    style={{ width: "90vw", height: "100vh" }}
+                    stylesheet={cytoscapeStylesheet}
+                    zoomingEnabled={true}
+                    userZoomingEnabled={true}
+                    minZoom={0.1}
+                    maxZoom={10}
+                    wheelSensitivity={0.1}
+                />
             </div>
             
         </div>
