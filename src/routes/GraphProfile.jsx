@@ -36,7 +36,6 @@ function GraphProfile() {
     let navigate = useNavigate();
     const [display_name, setDisplayName] = useState("");
     const cyRef = useRef(null);
-    const containerRef = useRef<HTMLDivElement>(null)
     const [elements, setElements] = useState([{ data: { id: "You", label: "You" } }]);
     const [layout, setLayout] = useState({
         name: "cise",
@@ -68,6 +67,7 @@ function GraphProfile() {
         category1: {
           post1: "Post content 1",
           post2: "Post content 2",
+          post4: "Post content 4",
         },
         category2: {
             post2: "Post content 2",
@@ -163,19 +163,19 @@ function GraphProfile() {
         {
             selector: "node",
             style: {
-            "background-color": theme == "dark" ? "#1976d2" : "#9ee1f7",
-            width: "label",
-            height: "label",
-            // a single "padding" is not supported in the types :(
-            "padding-top": "8",
-            "padding-bottom": "8",
-            "padding-left": "8",
-            "padding-right": "8",
-            // this fixes the text being shifted down on nodes (sadly no fix for edges, but it's not as obvious there without borders)
-            "text-margin-y": -3,
-            "text-background-padding": "20",
-            shape: "round-rectangle",
-            // label: 'My multiline\nlabel',
+                "background-color": theme == "dark" ? "#1976d2" : "#9ee1f7",
+                width: "label",
+                height: "label",
+                // a single "padding" is not supported in the types :(
+                "padding-top": "8",
+                "padding-bottom": "8",
+                "padding-left": "8",
+                "padding-right": "8",
+                // this fixes the text being shifted down on nodes (sadly no fix for edges, but it's not as obvious there without borders)
+                "text-margin-y": -3,
+                "text-background-padding": "20",
+                shape: "round-rectangle",
+                // label: 'My multiline\nlabel',
             },
         },
         {
@@ -248,34 +248,6 @@ function GraphProfile() {
             style: { opacity: 0.2 },
         },
     ];
-    
-    const adjustClusterPositions = (cy) => {
-        const categories = cy.$('.category'); // Select all categories
-        let xOffset = 0; // Initial horizontal offset to position clusters
-        const verticalOffset = 100; // Slight vertical gap between clusters
-    
-        categories.forEach((category, index) => {
-            const clusterNodes = category.connectedNodes(); // Get nodes connected to the category
-            const clusterBoundingBox = clusterNodes.boundingBox();
-    
-            // Calculate cluster center and apply the offset
-            const xCenter = xOffset + clusterBoundingBox.w / 2;
-            const yCenter = clusterBoundingBox.y1 + clusterBoundingBox.h / 2;
-    
-            // Set position for the category node
-            category.position({ x: xCenter, y: yCenter });
-    
-            // Adjust node positions based on the cluster's bounding box
-            clusterNodes.positions((node, i) => ({
-                x: node.position().x + xOffset, // Apply the horizontal offset
-                y: node.position().y + verticalOffset * (index % 2 === 0 ? 1 : -1), // Alternate vertical offset to reduce overlap
-            }));
-    
-            // Increment horizontal offset for next cluster, ensuring there's no overlap
-            xOffset += clusterBoundingBox.w + layout.clusterSeparation; // Increase space between clusters
-        });
-    };
-    
 
     // function to fetch the profile details of the user
     async function fetchUserProfile(){
@@ -403,12 +375,13 @@ function GraphProfile() {
                         <span className="profileText"><div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} /></span>
                     </div>
                 </div>
-
+                <h2 style={{textAlign: "center"}}>POSTS</h2>
                 <CytoscapeComponent
                     cy={(cy) => {
                         cy.fit();
                         cy.center();
                         // cy.pan({ x: 300, y: 300 });
+                        cy.zoom(1);
 
                         cy.on("tap", "node", function (e) {
                         // if (!cy.data("tapListenerAdded")) {
