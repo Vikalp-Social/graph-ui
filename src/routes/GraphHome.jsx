@@ -3,7 +3,6 @@ import axios from 'axios';
 import CytoscapeComponent from 'react-cytoscapejs'
 import { UserContext } from '../context/UserContext'
 import { useNavigate } from 'react-router-dom';
-import ThemePicker from '../theme/ThemePicker';
 import Navbar from '../components/Navbar';
 
 function GraphHome() {
@@ -138,7 +137,6 @@ function GraphHome() {
 
     return (
         <div>
-            <ThemePicker />
             <Navbar />
             {/* <CytoscapeComponent elements={elements} style={{ width: '100vw', height: '100vh' }} layout={layout} cy={(cy) => cy.center()}/> */}
             <CytoscapeComponent

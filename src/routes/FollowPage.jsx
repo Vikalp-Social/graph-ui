@@ -6,7 +6,6 @@ import { useErrors } from "../context/ErrorContext";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import Headbar from "../components/Headbar";
-import ThemePicker from "../theme/ThemePicker";
 import SearchAccount from "../components/SearchAccount";
 import SearchTag from '../components/SearchTag';
 
@@ -65,7 +64,6 @@ function FollowPage() {
 		<div className="main">
             <Navbar />
             <Sidebar />
-            <ThemePicker />
             <div className="feed container" >
                 <Headbar />
 					{follow === "following" ? 

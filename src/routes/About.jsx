@@ -2,7 +2,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/about.css';
-import ThemePicker from '../theme/ThemePicker';
 
 function About() {
   let navigate = useNavigate()
@@ -28,7 +27,7 @@ function About() {
           At Vikalp.Social, we are dedicated to providing options that put you in control.
         </p>
         <p>
-          We’re a work in progress, continuously improving and evolving to create a platform that gives people the 
+          We're a work in progress, continuously improving and evolving to create a platform that gives people the 
           freedom to shape their social media experience.
         </p>
       </section>

@@ -8,14 +8,15 @@ import { useErrors } from "../context/ErrorContext";
 import Navbar from "../components/Navbar";
 import Headbar from "../components/Headbar";
 import "../styles/profile.css";
-import ThemePicker from "../theme/ThemePicker";
 import UsernameEmoji from "../components/UsernameEmoji";
 
 import CytoscapeComponent from "react-cytoscapejs";
 import Cytoscape, { Core } from "cytoscape"; 
 import cise from "cytoscape-cise";
+import fcose from "cytoscape-fcose";
 
 Cytoscape.use(cise);
+Cytoscape.use(fcose);
 
 function GraphProfile() {
     const {id} = useParams();
@@ -73,6 +74,11 @@ function GraphProfile() {
             post2: "Post content 2",
             post3: "Post content 3",
         },
+        category3: {
+            post5: "5",
+            post6: "6",
+            post7: "7",
+        },
       };
 
       useEffect(() => {
@@ -91,7 +97,13 @@ function GraphProfile() {
                 });
     
                 if (Object.keys(cleanIdAndContent).length !== 0) {
-                    const data = mockData; // Replace with actual server call later
+                    const request = await axios.get(`http://localhost:5000/api/v1/accounts/${id}`, {
+                        params: {
+                            instance: currentUser.instance,
+                        }
+                    })
+
+                    //console.log(request.data.statuses.cluster);
     
                     const newelements = [];
                     const clusterList = [];
@@ -104,30 +116,34 @@ function GraphProfile() {
                     // });
     
                     // Add category nodes and edges
-                    Object.keys(data).forEach((category) => {
+                    Object.keys(request.data.statuses.cluster).forEach((category) => {
                         const cluster = [];
+                        console.log(category);
                         newelements.push({
                             data: { id: category, label: category },
                             classes: "category",
                         });
+
+                        //console.log(newelements);
     
-                        Object.keys(data[category]).forEach((postId) => {
+                        request.data.statuses.cluster[category].elements.forEach((post) => {
                             // Ensure the post node exists
-                            if (!newelements.some((el) => el.data.id === postId)) {
+                            //console.log(post.id);
+                            if (!newelements.some((el) => el.data.id === post.id)) {
                                 newelements.push({
-                                    data: { id: postId, label: trimString(data[category][postId], 100) },
+                                    data: { id: post.id, label: trimString(post.content.replace(/(<([^>]+)>)/gi, "").replace("&#39;", "'"), 100) },
                                 });
                             }
     
-                            cluster.push(postId);
+                            cluster.push(post.id);
     
                             // Add edge only if both source and target exist
                             if (
                                 newelements.some((el) => el.data.id === category) &&
-                                newelements.some((el) => el.data.id === postId)
+                                newelements.some((el) => el.data.id === post.id)
                             ) {
                                 newelements.push({
-                                    data: { source: category, target: postId },
+                                    data: { source: category, target: post.id },
                                 });
                             }
                         });
@@ -136,15 +152,17 @@ function GraphProfile() {
                     });
     
                     setElements([...newelements]);
-                    setLayout({
-                            name: "cise",
-                            clusters: clusterList, // This will be populated dynamically
-                            boundingBox: { x1: 0, y1: 0, w: 400, h: 400 }, // Reduce bounding box size
-                            nodeSeparation: 20, // Adjust separation between nodes in clusters
-                            idealInterClusterEdgeLengthCoefficient: 0.1, // Decrease to bring clusters closer
-                            clusterSeparation: 50, // Reduce cluster separation
-                            allowNodesInsideCircle: false, // Ensure proper node placement
-                    });
+                    const ciseLayout = {
+                        name: "cise",
+                        clusters: clusterList, // This will be populated dynamically
+                        boundingBox: { x1: 0, y1: 0, w: 400, h: 400 }, // Reduce bounding box size
+                        nodeSeparation: 40, // Adjust separation between nodes in clusters
+                        idealInterClusterEdgeLengthCoefficient: 0.2, // Decrease to bring clusters closer
+                        clusterSeparation: 30, // Reduce cluster separation
+                        allowNodesInsideCircle: false, // Ensure proper node placement
+                    }
+
+                    setLayout(fcoseLayout);
                 }
             } catch (error) {
                 console.error("Error processing data:", error.message);
@@ -158,6 +176,19 @@ function GraphProfile() {
             cleanAndProcessData();
         }
     }, [statuses]);
+
+    const fcoseLayout = {
+        name: "fcose",
+        gravity: 0.25, // Pull clusters closer
+        nodeRepulsion: 10000,
+        idealEdgeLength: 200,
+        avoidOverlap: true,
+        randomize: true, // Prevent re-randomization of nodes
+        animationDuration: 1000,
+        nodeSeparation: 40,
+        idealInterClusterEdgeLengthCoefficient: 0.2,
+        clusterSeparation: 40,
+    };
     
     const cytoscapeStylesheet = [
         {
@@ -338,7 +369,6 @@ function GraphProfile() {
     return (
         <div className="main">
             <Navbar />
-            <ThemePicker />
             <div className=" container">
                 <Headbar />
                 {loading && <div className="loader"></div>}

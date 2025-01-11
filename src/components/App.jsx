@@ -10,7 +10,6 @@ import StatusPage from "../routes/StatusPage";
 import TagPage from "../routes/TagPage";
 import { UserContextProvider } from "../context/UserContext";
 import { ErrorProvider } from "../context/ErrorContext";
-import ThemeSwitchPage from "../routes/ThemeSwitchPage";
 import Vikalp from "../routes/Vikalp";
 import About from "../routes/About";
 import FollowPage from "../routes/FollowPage";
@@ -51,7 +50,6 @@ function App() {
 							<Route exact path="/profile/:id/:follow" Component={FollowPage} />
 							<Route exact path="/search/:q" Component={Search} />
 							<Route exact path="/tags/:name" Component={TagPage} />
-							<Route exact path="/theme" Component={ThemeSwitchPage} />
 							<Route exact path="/vikalp" Component={Vikalp} />
 							<Route exact path="/about" Component={About} />
 							<Route exact path="/users" Component={Users} />

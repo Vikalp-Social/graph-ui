@@ -7,7 +7,6 @@ import Sidebar from '../components/Sidebar';
 import { UserContext } from '../context/UserContext';
 import { useErrors } from '../context/ErrorContext';
 import Headbar from '../components/Headbar';
-import ThemePicker from '../theme/ThemePicker';
 
 // StatusPage component is the main component that is rendered when the user visits a status/post.
 function StatusPage() {
@@ -70,7 +69,6 @@ function StatusPage() {
         <div className='main'>
             <Navbar />
             <Sidebar />
-            <ThemePicker />
             <div className="feed container">
                 <Headbar />
                 <Status 

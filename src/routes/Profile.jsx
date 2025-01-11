@@ -12,7 +12,6 @@ import Status from "../components/Status";
 import EditProfile from "../components/EditProfile";
 import Headbar from "../components/Headbar";
 import "../styles/profile.css";
-import ThemePicker from "../theme/ThemePicker";
 import UsernameEmoji from "../components/UsernameEmoji";
 
 // Profile component is the main component that is rendered when the user visits a profile. 
@@ -171,7 +170,6 @@ function Profile(){
         <div className="main">
             <Navbar />
             <Sidebar />
-            <ThemePicker />
             <div className="feed container">
                 <Headbar />
                 <div className="profile">

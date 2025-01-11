@@ -8,7 +8,6 @@ import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { useBottomScrollListener } from 'react-bottom-scroll-listener';
 import Headbar from "../components/Headbar";
-import ThemePicker from "../theme/ThemePicker";
 
 // Home component is the main component that is rendered when the user logs in. It fetches the timeline of the user and displays the posts in the timeline.
 function Home(){
@@ -79,7 +78,6 @@ function Home(){
     return (
         <>
             <div className="main">
-                <ThemePicker />
                 <Navbar />
                 <Sidebar />
                 <div className="feed container">

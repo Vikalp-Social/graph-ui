@@ -1,6 +1,5 @@
 import React, { useState, useContext } from 'react'
 import Navbar from '../components/Navbar'
-import ThemePicker from '../theme/ThemePicker'
 import Headbar from '../components/Headbar'
 import UsernameEmoji from '../components/UsernameEmoji'
 import { UserContext } from '../context/UserContext'
@@ -20,7 +19,6 @@ function Users() {
     return (
         <>
             <div className="main">
-                <ThemePicker />
                 <Navbar />
                 <div className="feed container">
                     <Headbar />

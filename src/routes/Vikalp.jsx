@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { UserContext } from '../context/UserContext'
 import useLocalStorage from '../hooks/useLocalStorage'
 import Navbar from '../components/Navbar'
-import ThemePicker from '../theme/ThemePicker'
 import '../styles/vikalp.css'
 
 function Vikalp() {
@@ -42,7 +41,6 @@ function Vikalp() {
     return (
         <div className='main'>
             <Navbar />
-            <ThemePicker />
             <div className='switch'>
                 <div>
                     <h2>Algorithms</h2>
