@@ -64,106 +64,83 @@ function GraphProfile() {
         document.title = `${user.display_name || user.username} (@${user.username === user.acct ? `${user.username}@${currentUser.instance}` : user.acct}) | Vikalp`;
     });
 
-    const mockData = {
-        category1: {
-          post1: "Post content 1",
-          post2: "Post content 2",
-          post4: "Post content 4",
-        },
-        category2: {
-            post2: "Post content 2",
-            post3: "Post content 3",
-        },
-        category3: {
-            post5: "5",
-            post6: "6",
-            post7: "7",
-        },
-      };
-
       useEffect(() => {
+        
         const cleanAndProcessData = async () => {
             try {
-                const cleanIdAndContent = {};
-    
                 // Clean statuses
-                statuses.forEach((status) => {
-                    const temp = status.content
-                        .replace(/(<([^>]+)>)/gi, "") // Remove HTML tags
-                        .replace("&#39;", "'"); // Decode HTML entity
-                    if (temp) {
-                        cleanIdAndContent[status.id] = temp;
-                    }
-                });
+                // statuses.forEach((status) => {
+                //     const temp = status.content
+                //         .replace(/(<([^>]+)>)/gi, "") // Remove HTML tags
+                //         .replace("&#39;", "'"); // Decode HTML entity
+                //     if (temp) {
+                //         cleanIdAndContent[status.id] = temp;
+                //     }
+                // });
     
-                if (Object.keys(cleanIdAndContent).length !== 0) {
-                    const request = await axios.get(`http://localhost:5000/api/v1/accounts/${id}`, {
-                        params: {
-                            instance: currentUser.instance,
-                        }
-                    })
+                // const request = await axios.get(`http://localhost:5000/api/v1/accounts/${id}`, {
+                //     params: {
+                //         instance: currentUser.instance,
+                //     }
+                // })
 
-                    //console.log(request.data.statuses.cluster);
-    
-                    const newelements = [];
-                    const clusterList = [];
-    
-                    // Add cleaned posts as nodes
-                    // Object.keys(cleanIdAndContent).forEach((id) => {
-                    //     newelements.push({
-                    //         data: { id: id, label: trimString(cleanIdAndContent[id], 100) },
-                    //     });
-                    // });
-    
-                    // Add category nodes and edges
-                    Object.keys(request.data.statuses.cluster).forEach((category) => {
-                        const cluster = [];
-                        console.log(category);
-                        newelements.push({
-                            data: { id: category, label: category },
-                            classes: "category",
-                        });
+                const newelements = [];
+                const clusterList = [];
 
-                        //console.log(newelements);
-    
-                        request.data.statuses.cluster[category].elements.forEach((post) => {
-                            // Ensure the post node exists
-                            //console.log(post.id);
-                            if (!newelements.some((el) => el.data.id === post.id)) {
-                                newelements.push({
-                                    data: { id: post.id, label: trimString(post.content.replace(/(<([^>]+)>)/gi, "").replace("&#39;", "'"), 100) },
-                                });
-                            }
-    
-                            cluster.push(post.id);
-    
-                            // Add edge only if both source and target exist
-                            if (
-                                newelements.some((el) => el.data.id === category) &&
-                                newelements.some((el) => el.data.id === post.id)
-                            ) {
-                                newelements.push({
-                                    data: { source: category, target: post.id },
-                                });
-                            }
-                        });
-    
-                        clusterList.push(cluster);
+                // Add cleaned posts as nodes
+                // Object.keys(cleanIdAndContent).forEach((id) => {
+                //     newelements.push({
+                //         data: { id: id, label: trimString(cleanIdAndContent[id], 100) },
+                //     });
+                // });
+
+                // Add category nodes and edges
+                Object.keys(statuses.cluster).forEach((category) => {
+                    const cluster = [];
+                    newelements.push({
+                        data: { id: category, label: category },
+                        classes: "category",
                     });
-    
-                    setElements([...newelements]);
-                    const ciseLayout = {
-                        name: "cise",
-                        clusters: clusterList, // This will be populated dynamically
-                        boundingBox: { x1: 0, y1: 0, w: 400, h: 400 }, // Reduce bounding box size
-                        nodeSeparation: 40, // Adjust separation between nodes in clusters
-                        idealInterClusterEdgeLengthCoefficient: 0.2, // Decrease to bring clusters closer
-                        clusterSeparation: 30, // Reduce cluster separation
-                        allowNodesInsideCircle: false, // Ensure proper node placement
-                    }
 
-                    setLayout(fcoseLayout);
+                    //console.log(newelements);
+
+                    statuses.cluster[category].elements.forEach((post) => {
+                        // Ensure the post node exists
+                        //console.log(post.id);
+                        if (!newelements.some((el) => el.data.id === post.id)) {
+                            newelements.push({
+                                data: { id: post.id, label: trimString(post.content.replace(/(<([^>]+)>)/gi, "").replace("&#39;", "'"), 100) },
+                            });
+                        }
+
+                        cluster.push(post.id);
+
+                        // Add edge only if both source and target exist
+                        if (
+                            newelements.some((el) => el.data.id === category) &&
+                            newelements.some((el) => el.data.id === post.id)
+                        ) {
+                            newelements.push({
+                                data: { source: category, target: post.id },
+                            });
+                        }
+                    });
+
+                    clusterList.push(cluster);
+                });
+
+                setElements([...newelements]);
+                const ciseLayout = {
+                    name: "cise",
+                    clusters: clusterList, // This will be populated dynamically
+                    boundingBox: { x1: 0, y1: 0, w: 400, h: 400 }, // Reduce bounding box size
+                    nodeSeparation: 40, // Adjust separation between nodes in clusters
+                    idealInterClusterEdgeLengthCoefficient: 0.2, // Decrease to bring clusters closer
+                    clusterSeparation: 30, // Reduce cluster separation
+                    allowNodesInsideCircle: false, // Ensure proper node placement
                 }
+
+                setLayout(fcoseLayout);
             } catch (error) {
                 console.error("Error processing data:", error.message);
             } finally {
@@ -171,7 +148,7 @@ function GraphProfile() {
             }
         };
     
-        if (statuses && statuses.length > 0) {
+        if (statuses) {
             setLoading(true);
             cleanAndProcessData();
         }
@@ -287,7 +264,7 @@ function GraphProfile() {
             const response = await APIClient.get(`/accounts/${id}`, {params: {instance: currentUser.instance}});
             // console.log(response.data)
             setUser(response.data.account);
-            setStatuses(response.data.statuses.list);
+            setStatuses(response.data.statuses);
             setDisplayName(response.data.account.display_name);
             setLoading(false);
         } catch (error) {
