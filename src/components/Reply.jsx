@@ -37,6 +37,7 @@ function Reply(props){
                 instance: currentUser.instance,
                 token: currentUser.token,
                 reply_id: props.post ? props.post.id : "",
+                media_ids: [] // Add empty media_ids array since we're not handling media uploads yet
             });
             props.close();
             
@@ -45,7 +46,9 @@ function Reply(props){
             }
             
         } catch (error) {
-            setError(error.response.data);
+            // Handle both API errors and network errors
+            const errorMessage = error.response?.data || error.message || 'An error occurred while posting the reply';
+            setError(errorMessage);
         }
     }
 

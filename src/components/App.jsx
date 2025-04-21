@@ -46,7 +46,7 @@ function App() {
 							<Route exact path="/auth" Component={Login} />
 							<Route exact path="/home" Component={GraphHome} />
 							<Route exact path="/status/:id" Component={StatusPage} />
-							<Route exact path="/profile/:id" Component={GraphProfile} />
+							<Route exact path="/profile/:id" Component={Profile} />
 							<Route exact path="/profile/:id/:follow" Component={FollowPage} />
 							<Route exact path="/search/:q" Component={Search} />
 							<Route exact path="/tags/:name" Component={TagPage} />

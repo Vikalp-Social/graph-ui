@@ -10,7 +10,6 @@ import Headbar from "../components/Headbar";
 import "../styles/profile.css";
 import UsernameEmoji from "../components/UsernameEmoji";
 
-import { ForceGraph2D } from "react-force-graph";
 import * as d3 from "d3";
 
 // import CytoscapeComponent from "react-cytoscapejs";
@@ -65,39 +64,108 @@ function GraphProfile() {
     }, []);
 
     useEffect(() => {
-        if (!graphRef.current) return;
+        if (graphData.nodes.length > 0) {
+            const width = graphRef.current.clientWidth;
+            const height = 400;
 
-        const graph = graphRef.current;
+            // Clear previous visualization
+            d3.select(graphRef.current).selectAll("*").remove();
 
-        // Delay force application to ensure nodes exist
-        setTimeout(() => {
-            // graph.d3Force("charge", d3.forceManyBody().strength(-300));
+            // Create SVG
+            const svg = d3.select(graphRef.current)
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
 
-            // // Apply clustering forces to group nodes together
-            // graph.d3Force(
-            // "x",
-            // d3.forceX().strength(0.1).x((node) => node.group * 200)
-            // );
-            // graph.d3Force(
-            // "y",
-            // d3.forceY().strength(0.1).y((node) => node.group * 200)
-            // );
+            // Create zoom behavior
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on("zoom", (event) => {
+                    g.attr("transform", event.transform);
+                });
 
-            // // Ensure links are processed only after nodes exist
-            // graph.d3Force(
-            // "link",
-            // d3.forceLink(graphData.links).id((d) => d.id).distance(100)
-            // );
+            svg.call(zoom);
 
-            // graph.d3ReheatSimulation(); // Restart simulation
+            // Create a group for the graph
+            const g = svg.append("g");
 
-            graph.d3Force("charge", d3.forceManyBody().strength(-300));
-            graph.d3Force("x", d3.forceX().strength(0.1).x((node) => node.group * 200));
-            graph.d3Force("y", d3.forceY().strength(0.1).y((node) => node.group * 200));
-            graph.d3Force("link", d3.forceLink(graphData.links).id((d) => d.id).distance(500));
-            graph.d3ReheatSimulation();
-        }, 100); // Short delay to ensure nodes are initialized
-    }, []);
+            // Create force simulation
+            const simulation = d3.forceSimulation(graphData.nodes)
+                .force("link", d3.forceLink(graphData.links).id(d => d.id).distance(100))
+                .force("charge", d3.forceManyBody().strength(-300))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collision", d3.forceCollide().radius(50));
+
+            // Create links
+            const link = g.append("g")
+                .selectAll("line")
+                .data(graphData.links)
+                .join("line")
+                .attr("stroke", "#999")
+                .attr("stroke-opacity", 0.6)
+                .attr("stroke-width", 1);
+
+            // Create nodes
+            const node = g.append("g")
+                .selectAll("g")
+                .data(graphData.nodes)
+                .join("g")
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            // Add circles for nodes
+            node.append("circle")
+                .attr("r", d => d.type === "category" ? 20 : 30)
+                .attr("fill", d => d.color || "#1da1f2")
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 2);
+
+            // Add labels for nodes
+            node.append("text")
+                .text(d => d.label)
+                .attr("text-anchor", "middle")
+                .attr("dy", ".35em")
+                .attr("fill", "#fff")
+                .style("font-size", "12px")
+                .style("pointer-events", "none");
+
+            // Update positions on each tick
+            simulation.on("tick", () => {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                node.attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+
+            // Drag functions
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+
+            // Cleanup
+            return () => {
+                simulation.stop();
+            };
+        }
+    }, [graphData]);
 
     useEffect(() => {
         document.title = `${user.display_name || user.username} (@${user.username === user.acct ? `${user.username}@${currentUser.instance}` : user.acct}) | Vikalp`;
@@ -296,96 +364,7 @@ function GraphProfile() {
                 </div>
                 <h2 style={{textAlign: "center"}}>POSTS</h2>
 
-                <ForceGraph2D
-                    linkDirectionalParticles={2}
-                    linkDirectionalParticleWidth={1.5}    
-                    linkColor={(link) => "white"}
-                    // d3Force("link", (link) => {
-                    //     link.distance = 200; // Increase edge length
-                    // })
-                    d3VelocityDecay={0.2}
-                    graphData={graphData}
-                    nodeCanvasObject={(node, ctx, globalScale) => {
-                        const x = node.x;
-                        const y = node.y;
-                        const fontSize = 12;
-                        ctx.font = `${fontSize}px Sans-Serif`;
-                        ctx.textAlign = "center";
-                        ctx.textBaseline = "middle";
-
-                        if (node.type === "category") {
-                            ctx.beginPath();
-                            ctx.arc(x, y, 20, 0, 2 * Math.PI, false);
-                            ctx.fillStyle = node.color;
-                            ctx.fill();
-                            ctx.stroke();
-                            ctx.fillStyle = "white";
-                            ctx.fillText(node.label, x, y);
-                        } else if (node.type === "post") {
-                            const padding = 5;
-                            const maxWidth = 100;
-                            const textLines = [];
-                            let tempText = "";
-                            node.label.split(" ").forEach((word) => {
-                            const testLine = tempText + (tempText ? " " : "") + word;
-                            const testWidth = ctx.measureText(testLine).width;
-                            if (testWidth > maxWidth) {
-                                textLines.push(tempText);
-                                tempText = word;
-                            } else {
-                                tempText = testLine;
-                            }
-                            });
-                            textLines.push(tempText);
-
-                            const textHeight = textLines.length * fontSize + padding * 2;
-                            const rectWidth = maxWidth + padding * 2;
-                            const rectHeight = textHeight;
-                            
-                            ctx.fillStyle = node.color;
-                            ctx.fillRect(x - rectWidth / 2, y - rectHeight / 2, rectWidth, rectHeight);
-                            ctx.strokeRect(x - rectWidth / 2, y - rectHeight / 2, rectWidth, rectHeight);
-                            
-                            ctx.fillStyle = "white";
-                            textLines.forEach((line, i) => {
-                            ctx.fillText(line, x, y - rectHeight / 2 + padding + i * fontSize);
-                            });
-                        }
-                    }}
-                    nodePointerAreaPaint={(node, color, ctx) => {
-                        ctx.fillStyle = color;
-                        if (node.type === "category") {
-                            ctx.beginPath();
-                            ctx.arc(node.x, node.y, 20, 0, 2 * Math.PI, false);
-                            ctx.fill();
-                        } else if (node.type === "post") {
-                            const padding = 5;
-                            const maxWidth = 100;
-                            const fontSize = 12;
-                            const textLines = [];
-                            let tempText = "";
-
-                            node.label.split(" ").forEach((word) => {
-                            const testLine = tempText + (tempText ? " " : "") + word;
-                            const testWidth = ctx.measureText(testLine).width;
-                            if (testWidth > maxWidth) {
-                                textLines.push(tempText);
-                                tempText = word;
-                            } else {
-                                tempText = testLine;
-                            }
-                            });
-                            textLines.push(tempText);
-
-                            const textHeight = textLines.length * fontSize + padding * 2;
-                            const rectWidth = maxWidth + padding * 2;
-                            const rectHeight = textHeight;
-
-                            ctx.fillRect(node.x - rectWidth / 2, node.y - rectHeight / 2, rectWidth, rectHeight);
-                        }
-                    }}
-
-                />
+                <div ref={graphRef} style={{ width: '100%', height: '400px' }}></div>
 
             </div>
             
