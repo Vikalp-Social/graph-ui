@@ -9,10 +9,11 @@ import { MdOutlineRepeat } from "react-icons/md";
 import UsernameEmoji from "../components/UsernameEmoji";
 import MediaDisplay from "../components/MediaDisplay";
 import Reply from "../components/Reply";
+import { useNavigate } from "react-router-dom";
 
 // Function to fetch and transform data from API
 const fetchAndTransformData = async (token) => {
-  const baseUrl = `http://localhost:5000/api/v1/timelines/home?instance=mastodon.social&token=${token}`;
+  const baseUrl = `${APIClient.defaults.baseURL}/timelines/home?instance=mastodon.social&token=${token}`;
 
   try {
     const response1 = await fetch(`${baseUrl}&limit=40&max_id=`);
@@ -147,6 +148,11 @@ const GraphHome = () => {
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [hoverNode, setHoverNode] = useState(null);
   const [showSidebar, setShowSidebar] = useState(false);
+  const zoomTimeout = useRef(null);
+  const mousePositionRef = useRef({ x: 0, y: 0 });
+  const navigate = useNavigate();
+
+
 
   // Load data on component mount
   useEffect(() => {
@@ -236,7 +242,7 @@ const GraphHome = () => {
   };
 
   // Initialize layout once
-  useEffect(() => {
+    useEffect(() => {
     const { width, height } = dimensions;
     const clusters = [...new Set(data.map((d) => d.cluster))];
 
@@ -461,26 +467,30 @@ const GraphHome = () => {
 
     // Initialize zoom behavior for immediate response
     const zoom = d3.zoom()
-      .scaleExtent([0.1, 5])
+    .scaleExtent([0.1, 5])
       .on("zoom", (event) => {
         lastTransform.current = event.transform;
         g.attr("transform", event.transform);
-        // Update preview when panning
+  
         if (isMobile) {
           const closest = findClosestToCenter(data, width, height);
           setCenterPreview(closest);
         }
       });
+  
+      
 
     zoomRef.current = zoom;
     
     // Apply zoom to svg and restore previous transform if it exists
     svg.call(zoom);
     if (lastTransform.current) {
-      svg.call(zoom.transform, d3.zoomIdentity
+      svg.interrupt(); // Stop ongoing transitions
+      zoomRef.current.transform(svg, d3.zoomIdentity
         .translate(lastTransform.current.x, lastTransform.current.y)
         .scale(lastTransform.current.k)
       );
+      
     }
 
     // Add touch event handlers for mobile with immediate response
@@ -600,7 +610,7 @@ const GraphHome = () => {
     accountIdentifiers
       .on("mouseenter", (event, d) => {
         if (!isMobile) {
-          setMousePosition({ x: event.clientX, y: event.clientY });
+          mousePositionRef.current = { x: event.clientX, y: event.clientY };
           setHoverAccount({
             id: d.group[0].status.account.id,
             content: d.group[0].status.content,
@@ -615,7 +625,7 @@ const GraphHome = () => {
       })
       .on("mousemove", (event) => {
         if (!isMobile) {
-          setMousePosition({ x: event.clientX, y: event.clientY });
+          mousePositionRef.current = { x: event.clientX, y: event.clientY };
         }
       })
       .on("mouseleave", () => {
@@ -685,13 +695,13 @@ const GraphHome = () => {
       })
       .on("mouseenter", (event, d) => {
         if (!isMobile) {
-          setMousePosition({ x: event.clientX, y: event.clientY });
+          mousePositionRef.current = { x: event.clientX, y: event.clientY };
           setHoverPreview(d);
         }
       })
       .on("mousemove", (event) => {
         if (!isMobile && hoverPreview) {
-          setMousePosition({ x: event.clientX, y: event.clientY });
+          mousePositionRef.current = { x: event.clientX, y: event.clientY };
         }
       })
       .on("mouseleave", () => {
@@ -898,10 +908,16 @@ const GraphHome = () => {
     const [isFavourite, setFavourite] = useState(status?.favourited || false);
     const [isBoosted, setBoosted] = useState(status?.reblogged || false);
     const [isReplying, setReplying] = useState(false);
+    const navigate = useNavigate();
     
     if (!status) return null;
     
     const sanitizedHtml = DOMPurify.sanitize(status.content);
+    
+    // Handle status click to navigate to status page
+    const handleStatusClick = () => {
+      navigate(`/status/${status.id}`);
+    };
     
     // Handle favorite button
     const handleFavourite = async (event) => {
@@ -953,184 +969,179 @@ const GraphHome = () => {
       event.stopPropagation();
       navigator.clipboard.writeText(status.uri);
       // You could show a toast notification here
-    };
-    
+  };
+
     return (
-      <>
-        <div className={isReply ? "reply" : "status"} style={{
-          padding: "15px",
-          marginBottom: "15px",
-          borderRadius: "8px",
-          background: theme === "dark" ? "hsl(var(--status_background))" : "white",
-          border: theme === "dark" ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.1)",
-          paddingBottom: (isReply && thread) ? '0' : '10px'
-        }}>
-          {status.reblogged && (
-            <div className="statusRepost" onClick={(event) => handleUserClick(event, status.account.id)} style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "5px",
-              marginBottom: "10px",
-              color: "var(--text_color)",
-              opacity: 0.7
-            }}>
-              <MdOutlineRepeat style={{color: "green", fontSize: "20px"}}/> 
-              <span><strong><UsernameEmoji name={status.account.display_name || status.account.username} emojis={status.account.emojis} /></strong></span> 
-              <span>reposted</span>
-            </div>
-          )}
-          
-          <div className="statusTop" style={{
+      <div 
+        className={`status ${isReply ? 'reply' : ''} ${thread ? 'thread' : ''}`}
+        onClick={handleStatusClick}
+        style={{ cursor: 'pointer' }}
+      >
+        {status.reblogged && (
+          <div className="statusRepost" onClick={(event) => handleUserClick(event, status.account.id)} style={{
             display: "flex",
-            justifyContent: "space-between",
-            marginBottom: "10px"
+            alignItems: "center",
+            gap: "5px",
+            marginBottom: "10px",
+            color: "var(--text_color)",
+            opacity: 0.7
           }}>
-            <div className="statusTopLeft" style={{
+            <MdOutlineRepeat style={{color: "green", fontSize: "20px"}}/> 
+            <span><strong><UsernameEmoji name={status.account.display_name || status.account.username} emojis={status.account.emojis} /></strong></span> 
+            <span>reposted</span>
+          </div>
+        )}
+        
+        <div className="statusTop" style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: "10px"
+        }}>
+          <div className="statusTopLeft" style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px"
+          }}>
+            <img 
+              className="statusProfileImg" 
+              src={status.account.avatar} 
+              alt="profile" 
+              onClick={(event) => handleUserClick(event, status.account.id)}
+              style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "50%",
+                objectFit: "cover",
+                cursor: "pointer"
+              }}
+            />
+            <div className="statusUser" style={{
               display: "flex",
-              alignItems: "center",
-              gap: "10px"
+              flexDirection: "column"
             }}>
-              <img 
-                className="statusProfileImg" 
-                src={status.account.avatar} 
-                alt="profile" 
+              <span 
+                className="statusUsername" 
                 onClick={(event) => handleUserClick(event, status.account.id)}
                 style={{
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "50%",
-                  objectFit: "cover",
+                  fontWeight: "bold",
                   cursor: "pointer"
                 }}
-              />
-              <div className="statusUser" style={{
-                display: "flex",
-                flexDirection: "column"
-              }}>
-                <span 
-                  className="statusUsername" 
-                  onClick={(event) => handleUserClick(event, status.account.id)}
-                  style={{
-                    fontWeight: "bold",
-                    cursor: "pointer"
-                  }}
-                >
-                  <UsernameEmoji name={status.account.display_name || status.account.username} emojis={status.account.emojis} />
-                </span>
-                <span className="userInstance" style={{
-                  fontSize: "0.8em",
-                  opacity: 0.7
-                }}>
-                  {status.account.username === status.account.acct 
-                    ? `${status.account.username}@${currentUser.instance}` 
-                    : status.account.acct}
-                </span>
-              </div>
-            </div>
-          </div>
-          
-          <div className={thread ? "statusCenter" : ""} style={{
-            position: "relative"
-          }}>
-            {(isReply && thread) && (
-              <div className="reply-line-container" style={{
-                position: "absolute",
-                left: "-15px",
-                top: 0,
-                bottom: 0,
-                width: "2px",
-                background: theme === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.2)"
-              }}>
-                <div className="reply-line"></div>
-              </div>
-            )}
-            
-            <div className="statusBody" style={{
-              marginLeft: (isReply && thread) ? "15px" : "0"
-            }}>
-              <span className="statusText" style={{
-                marginBottom: "10px",
-                display: "block"
-              }}>
-                <div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
+              >
+                <UsernameEmoji name={status.account.display_name || status.account.username} emojis={status.account.emojis} />
               </span>
-              
-              {status.media_attachments && status.media_attachments.length > 0 && (
-                <MediaDisplay mediaList={status.media_attachments} />
-              )}
-              
-              <div className="statusBottom" style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginTop: "15px",
-                paddingTop: "10px",
-                borderTop: theme === "dark" ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.1)"
+              <span className="userInstance" style={{
+                fontSize: "0.8em",
+                opacity: 0.7
               }}>
-                <div className="statusBottomLeft" style={{
-                  display: "flex",
-                  gap: "15px"
-                }}>
-                  <div 
-                    title="Reply" 
-                    onClick={handleReply}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      cursor: "pointer"
-                    }}
-                  >
-                    <FaRegComment/> 
-                    <span className="stats">{formatData(status.replies_count || 0)}</span>
-                  </div>
-                  <div 
-                    title="Repost" 
-                    onClick={handleBoost}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      cursor: "pointer",
-                      color: isBoosted ? "green" : ""
-                    }}
-                  >
-                    <FaRepeat /> 
-                    <span className="stats">{formatData(status.reblogs_count || 0)}</span>
-                  </div>
-                  <div 
-                    title="Like" 
-                    onClick={handleFavourite}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      cursor: "pointer",
-                      color: isFavourite ? "red" : ""
-                    }}
-                  >
-                    {isFavourite ? <FaHeart /> : <FaRegHeart />}
-                    <span className="stats">{formatData(status.favourites_count || 0)}</span>
-                  </div>
-                </div>
-                <div className="statusBottomRight" style={{
-                  display: "flex",
-                  gap: "15px"
-                }}>
-                  <div 
-                    title="Share" 
-                    onClick={handleShare}
-                    style={{
-                      cursor: "pointer"
-                    }}
-                  >
-                    <FaShare />
-                  </div>
-                </div>
-              </div>
+                {status.account.username === status.account.acct 
+                  ? `${status.account.username}@${currentUser.instance}` 
+                  : status.account.acct}
+              </span>
             </div>
           </div>
         </div>
         
+        <div className={thread ? "statusCenter" : ""} style={{
+          position: "relative"
+        }}>
+          {(isReply && thread) && (
+            <div className="reply-line-container" style={{
+              position: "absolute",
+              left: "-15px",
+              top: 0,
+              bottom: 0,
+              width: "2px",
+              background: theme === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.2)"
+            }}>
+              <div className="reply-line"></div>
+            </div>
+          )}
+          
+          <div className="statusBody" style={{
+            marginLeft: (isReply && thread) ? "15px" : "0"
+          }}>
+            <span className="statusText" style={{
+              marginBottom: "10px",
+              display: "block"
+            }}>
+              <div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
+            </span>
+            
+            {status.media_attachments && status.media_attachments.length > 0 && (
+              <MediaDisplay mediaList={status.media_attachments} />
+            )}
+            
+            <div className="statusBottom" style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginTop: "15px",
+              paddingTop: "10px",
+              borderTop: theme === "dark" ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.1)"
+            }}>
+              <div className="statusBottomLeft" style={{
+                display: "flex",
+                gap: "15px"
+              }}>
+                <div 
+                  title="Reply" 
+                  onClick={handleReply}
+          style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    cursor: "pointer"
+                  }}
+                >
+                  <FaRegComment/> 
+                  <span className="stats">{formatData(status.replies_count || 0)}</span>
+                </div>
+                <div 
+                  title="Repost" 
+                  onClick={handleBoost}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    cursor: "pointer",
+                    color: isBoosted ? "green" : ""
+                  }}
+                >
+                  <FaRepeat /> 
+                  <span className="stats">{formatData(status.reblogs_count || 0)}</span>
+                </div>
+                <div 
+                  title="Like" 
+                  onClick={handleFavourite}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    cursor: "pointer",
+                    color: isFavourite ? "red" : ""
+                  }}
+                >
+                  {isFavourite ? <FaHeart /> : <FaRegHeart />}
+                  <span className="stats">{formatData(status.favourites_count || 0)}</span>
+                </div>
+              </div>
+              <div className="statusBottomRight" style={{
+                display: "flex",
+                gap: "15px"
+              }}>
+                <div 
+                  title="Share" 
+                  onClick={handleShare}
+                  style={{
+                    cursor: "pointer"
+                  }}
+                >
+                  <FaShare />
+                </div>
+              </div>
+            </div>
+          </div>
+      </div>
+
         {/* Reply Modal */}
         {isReplying && (
           <Reply 
@@ -1140,7 +1151,7 @@ const GraphHome = () => {
             instance={currentUser.instance}
           />
         )}
-      </>
+      </div>
     );
   };
 
@@ -1177,318 +1188,318 @@ const GraphHome = () => {
         </div>
       ) : (
         <div style={{ display: "flex", flex: 1, position: "relative" }}>
-          {/* Mobile Crosshair - Fixed at center of viewport */}
-          {isMobile && (
-            <div
-              style={{
-                position: "fixed",
-                left: "50%",
-                top: "50%",
-                transform: "translate(-50%, -50%)",
+      {/* Mobile Crosshair - Fixed at center of viewport */}
+      {isMobile && (
+      <div
+        style={{
+            position: "fixed",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
                 width: "60px",
                 height: "60px",
-                pointerEvents: "none",
+            pointerEvents: "none",
                 zIndex: 9999,
-              }}
-            >
-              {/* Magnifying glass icon */}
-              <svg 
+          }}
+        >
+          {/* Magnifying glass icon */}
+          <svg 
                 width="60" 
                 height="60" 
-                viewBox="0 0 40 40" 
-                fill="none" 
-                xmlns="http://www.w3.org/2000/svg"
-                style={{
+            viewBox="0 0 40 40" 
+            fill="none" 
+            xmlns="http://www.w3.org/2000/svg"
+            style={{
                   filter: "drop-shadow(0px 0px 3px rgba(0,0,0,0.5))"
-                }}
-              >
-                {/* Magnifying glass handle */}
-                <path 
-                  d="M24.5 24.5L32 32" 
+            }}
+          >
+            {/* Magnifying glass handle */}
+            <path 
+              d="M24.5 24.5L32 32" 
                   stroke="rgba(255, 0, 0, 1)" 
                   strokeWidth="4" 
-                  strokeLinecap="round"
-                />
-                {/* Magnifying glass circle */}
-                <circle 
-                  cx="17" 
-                  cy="17" 
-                  r="8" 
+              strokeLinecap="round"
+            />
+            {/* Magnifying glass circle */}
+            <circle 
+              cx="17" 
+              cy="17" 
+              r="8" 
                   stroke="rgba(255, 0, 0, 1)" 
                   strokeWidth="4" 
-                  fill="none"
-                />
-              </svg>
-            </div>
-          )}
+              fill="none"
+            />
+          </svg>
+        </div>
+      )}
 
-          {/* Desktop Tooltip Preview */}
-          {hoverPreview && !isMobile && (
-            <div
-              style={{
-                position: "fixed",
-                left: mousePosition.x + 10,
-                top: mousePosition.y + 10,
+      {/* Desktop Tooltip Preview */}
+      {hoverPreview && !isMobile && (
+        <div
+          style={{
+            position: "fixed",
+                left: mousePositionRef.current.x + 10,
+                top: mousePositionRef.current.y + 10,
                 background: theme === "dark" ? "hsl(var(--status_background))" : "white",
                 padding: "15px",
-                borderRadius: "8px",
+            borderRadius: "8px",
                 boxShadow: theme === "dark" ? "0 2px 4px rgba(0,0,0,0.3)" : "0 2px 4px rgba(0,0,0,0.1)",
                 maxWidth: "400px",
-                zIndex: 1000,
-                display: "flex",
+            zIndex: 1000,
+            display: "flex",
                 gap: "12px",
-                alignItems: "flex-start",
+            alignItems: "flex-start",
                 color: "var(--text_color)",
                 border: theme === "dark" ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.1)",
-              }}
-            >
-              <div style={{
+          }}
+        >
+          <div style={{
                 width: "48px",
                 height: "48px",
-                flexShrink: 0,
-              }}>
-                <img
+            flexShrink: 0,
+          }}>
+            <img
                   src={hoverPreview.status.account.avatar}
-                  alt="Preview"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    borderRadius: "50%",
-                    objectFit: "cover",
-                  }}
-                />
-              </div>
-              <div style={{ 
-                flex: 1,
-                minWidth: 0,
-              }}>
-                <div style={{ 
-                  fontWeight: "bold", 
-                  fontSize: "0.9em",
-                  marginBottom: "4px",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}>
-                  {hoverPreview.status.account.display_name || hoverPreview.status.account.username}
-                </div>
-                <div style={{ 
-                  fontSize: "0.8em", 
-                  color: "var(--text_color)",
-                  display: "-webkit-box",
-                  WebkitLineClamp: "4",
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                  lineHeight: "1.4",
-                  maxHeight: "5.6em",
-                }}>
-                  <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(hoverPreview.status.content) }} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Mobile Center Preview */}
-          {centerPreview && isMobile && (
-            <div style={{
-              position: "fixed",
-              width: "100vw",
-              bottom: dimensions.width > dimensions.height ? "15%" : "30%",
-              left: 0,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              zIndex: 1002,
-              pointerEvents: "none",
-              transform: "translateX(calc((100vw - 100%) / -2))",
+              alt="Preview"
+              style={{
+                width: "100%",
+                height: "100%",
+                borderRadius: "50%",
+                objectFit: "cover",
+              }}
+            />
+          </div>
+          <div style={{ 
+            flex: 1,
+            minWidth: 0,
+          }}>
+            <div style={{ 
+              fontWeight: "bold", 
+              fontSize: "0.9em",
+              marginBottom: "4px",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}>
-              <div
-                style={{
+                  {hoverPreview.status.account.display_name || hoverPreview.status.account.username}
+            </div>
+            <div style={{ 
+              fontSize: "0.8em", 
+                  color: "var(--text_color)",
+              display: "-webkit-box",
+                  WebkitLineClamp: "4",
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              lineHeight: "1.4",
+                  maxHeight: "5.6em",
+            }}>
+                  <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(hoverPreview.status.content) }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Center Preview */}
+          {centerPreview && isMobile && (
+        <div style={{
+          position: "fixed",
+          width: "100vw",
+              bottom: dimensions.width > dimensions.height ? "15%" : "30%",
+          left: 0,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 1002,
+          pointerEvents: "none",
+          transform: "translateX(calc((100vw - 100%) / -2))",
+        }}>
+          <div
+            style={{
                   background: theme === "dark" ? "hsl(var(--status_background))" : "white",
                   padding: "12px",
-                  borderRadius: "8px",
+              borderRadius: "8px",
                   boxShadow: theme === "dark" ? "0 2px 8px rgba(0,0,0,0.3)" : "0 2px 8px rgba(0,0,0,0.15)",
                   width: "90%",
                   maxWidth: "450px",
                   minWidth: "250px",
-                  display: "flex",
+              display: "flex",
                   gap: "12px",
-                  alignItems: "flex-start",
-                  border: "2px solid rgba(255, 0, 0, 0.5)",
+              alignItems: "flex-start",
+              border: "2px solid rgba(255, 0, 0, 0.5)",
                   maxHeight: "120px",
-                  overflow: "hidden",
-                  margin: "0 auto",
+              overflow: "hidden",
+              margin: "0 auto",
                   color: "var(--text_color)",
-                }}
-              >
-                <div style={{
+            }}
+          >
+            <div style={{
                   width: "48px",
                   height: "48px",
-                  flexShrink: 0,
-                }}>
-                  <img
+              flexShrink: 0,
+            }}>
+              <img
                     src={centerPreview.status.account.avatar}
-                    alt="Preview"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      borderRadius: "50%",
-                      objectFit: "cover",
-                    }}
-                  />
-                </div>
-                <div style={{ 
-                  flex: 1,
-                  minWidth: 0,
-                  width: "calc(100% - 44px)",
-                }}>
-                  <div style={{ 
-                    fontWeight: "bold", 
-                    fontSize: "0.9em",
-                    marginBottom: "2px",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}>
-                    {centerPreview.cluster}
-                  </div>
-                  <div style={{ 
-                    fontSize: "0.8em", 
+                alt="Preview"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                }}
+              />
+            </div>
+            <div style={{ 
+              flex: 1,
+              minWidth: 0,
+              width: "calc(100% - 44px)",
+            }}>
+              <div style={{ 
+                fontWeight: "bold", 
+                fontSize: "0.9em",
+                marginBottom: "2px",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}>
+                {centerPreview.cluster}
+              </div>
+              <div style={{ 
+                fontSize: "0.8em", 
                     color: "var(--text_color)",
-                    display: "-webkit-box",
+                display: "-webkit-box",
                     WebkitLineClamp: "3",
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
                     lineHeight: "1.4",
                     maxHeight: "4.2em",
-                  }}>
+              }}>
                     <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(centerPreview.status.content) }} />
-                  </div>
-                </div>
               </div>
             </div>
-          )}
+          </div>
+        </div>
+      )}
 
-          {/* Account Info Card on Hover */}
-          {hoverAccount && !isMobile && (
-            <div
-              style={{
-                position: "fixed",
-                left: mousePosition.x + 10,
-                top: mousePosition.y + 10,
+      {/* Account Info Card on Hover */}
+      {hoverAccount && !isMobile && (
+        <div
+          style={{
+            position: "fixed",
+                left: mousePositionRef.current.x + 10,
+                top: mousePositionRef.current.y + 10,
                 background: theme === "dark" ? "hsl(var(--status_background))" : "white",
-                padding: "16px",
-                borderRadius: "12px",
+            padding: "16px",
+            borderRadius: "12px",
                 boxShadow: theme === "dark" ? "0 4px 12px rgba(0,0,0,0.3)" : "0 4px 12px rgba(0,0,0,0.15)",
-                maxWidth: "300px",
-                zIndex: 1000,
-                display: "flex",
-                flexDirection: "column",
-                gap: "12px",
+            maxWidth: "300px",
+            zIndex: 1000,
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px",
                 border: theme === "dark" ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.1)",
                 color: "var(--text_color)",
-              }}
-            >
-              <div style={{
-                display: "flex",
-                gap: "12px",
-                alignItems: "center",
-              }}>
-                <div style={{
-                  width: "48px",
-                  height: "48px",
-                  flexShrink: 0,
-                }}>
-                  <img
-                    src={hoverAccount.image}
-                    alt="Account"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      borderRadius: "50%",
-                      objectFit: "cover",
+          }}
+        >
+          <div style={{
+            display: "flex",
+            gap: "12px",
+            alignItems: "center",
+          }}>
+            <div style={{
+              width: "48px",
+              height: "48px",
+              flexShrink: 0,
+            }}>
+              <img
+                src={hoverAccount.image}
+                alt="Account"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  borderRadius: "50%",
+                  objectFit: "cover",
                       border: theme === "dark" ? "2px solid rgba(255, 255, 255, 0.1)" : "2px solid #eee",
-                    }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ 
-                    display: "flex", 
-                    alignItems: "center", 
-                    gap: "4px",
-                    marginBottom: "4px",
-                  }}>
-                    <span style={{ 
-                      fontWeight: "bold",
-                      fontSize: "1.1em",
+                }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: "4px",
+                marginBottom: "4px",
+              }}>
+                <span style={{ 
+                  fontWeight: "bold",
+                  fontSize: "1.1em",
                       color: "var(--text_color)",
-                    }}>
-                      {hoverAccount.name}
-                    </span>
-                  </div>
-                  <div style={{ 
-                    fontSize: "0.9em",
+                }}>
+                  {hoverAccount.name}
+                </span>
+              </div>
+              <div style={{ 
+                fontSize: "0.9em",
                     color: "var(--text_color)",
                     opacity: 0.7,
-                  }}>
-                    @{hoverAccount.accountId}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, 1fr)",
-                gap: "8px",
-                fontSize: "0.9em",
-                color: "var(--text_color)",
               }}>
-                <div>
-                  <span style={{ fontWeight: "bold", color: "var(--text_color)" }}>{hoverAccount.followers.toLocaleString()}</span>
-                  <br />
-                  <span style={{ opacity: 0.7 }}>Followers</span>
-                </div>
-                <div>
-                  <span style={{ fontWeight: "bold", color: "var(--text_color)" }}>{hoverAccount.posts}</span>
-                  <br />
-                  <span style={{ opacity: 0.7 }}>Posts in Topic</span>
-                </div>
+                @{hoverAccount.accountId}
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Main Content */}
-          <div style={{ display: "flex", flex: 1, position: "relative" }}>
-            {!isMobile && isSidebarVisible && (
-              <div
-                style={{
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: "8px",
+            fontSize: "0.9em",
+                color: "var(--text_color)",
+          }}>
+            <div>
+                  <span style={{ fontWeight: "bold", color: "var(--text_color)" }}>{hoverAccount.followers.toLocaleString()}</span>
+              <br />
+                  <span style={{ opacity: 0.7 }}>Followers</span>
+            </div>
+            <div>
+                  <span style={{ fontWeight: "bold", color: "var(--text_color)" }}>{hoverAccount.posts}</span>
+              <br />
+                  <span style={{ opacity: 0.7 }}>Posts in Topic</span>
+        </div>
+      </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div style={{ display: "flex", flex: 1, position: "relative" }}>
+        {!isMobile && isSidebarVisible && (
+          <div
+            style={{
                   width: "500px",
                   background: theme === "dark" ? "hsl(var(--status_background))" : "#f8f9fa",
                   borderRight: theme === "dark" ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid #ddd",
-                  position: "relative",
+              position: "relative",
                   color: "var(--text_color)",
                   display: "flex",
                   flexDirection: "column",
                   height: "100vh",
                   overflow: "hidden",
-                }}
-              >
-                <button
-                  onClick={handleCloseSidebar}
-                  style={{
-                    position: "absolute",
-                    top: "10px",
-                    right: "10px",
-                    padding: "5px 10px",
+            }}
+          >
+            <button
+              onClick={handleCloseSidebar}
+              style={{
+                position: "absolute",
+                top: "10px",
+                right: "10px",
+                padding: "5px 10px",
                     background: theme === "dark" ? "rgba(255, 255, 255, 0.2)" : "#ddd",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
                     zIndex: 10001,
-                  }}
-                >
-                  ×
-                </button>
+              }}
+            >
+              ×
+            </button>
                 <h3 style={{ padding: "15px 15px 0 15px" }}>Post Details</h3>
                 <div 
                   style={{
@@ -1506,7 +1517,7 @@ const GraphHome = () => {
                   }}
                 >
                   {statusData ? (
-                    <div>
+              <div>
                       {renderStatus(statusData)}
                       <h3 style={{ marginTop: "20px", marginBottom: "10px" }}>Replies</h3>
                       {loadingStatus ? (
@@ -1533,76 +1544,76 @@ const GraphHome = () => {
                       ) : (
                         <p>No replies yet</p>
                       )}
-                    </div>
-                  ) : (
-                    <p>Click a profile to view the post.</p>
-                  )}
-                </div>
               </div>
+            ) : (
+              <p>Click a profile to view the post.</p>
             )}
+                </div>
+          </div>
+        )}
 
-            <div style={{ flex: 1 }}>
-              <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>
-            </div>
+        <div style={{ flex: 1 }}>
+          <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>
+        </div>
 
-            {/* Mobile Post Details Modal */}
-            {isMobile && isSidebarVisible && selectedProfile && (
-              <div
-                style={{
-                  position: "fixed",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
+        {/* Mobile Post Details Modal */}
+        {isMobile && isSidebarVisible && selectedProfile && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
                   background: theme === "dark" ? "hsl(var(--body_background))" : "white",
                   zIndex: 9999,
-                  display: "flex",
-                  flexDirection: "column",
-                  boxSizing: "border-box",
-                  height: "100vh",
-                  width: "100vw",
+              display: "flex",
+              flexDirection: "column",
+              boxSizing: "border-box",
+              height: "100vh",
+              width: "100vw",
                   color: "var(--text_color)",
                   overflow: "hidden",
-                }}
-              >
-                <div style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
+            }}
+          >
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
                   padding: "15px",
-                  flexShrink: 0,
-                  position: "sticky",
-                  top: 0,
+              flexShrink: 0,
+              position: "sticky",
+              top: 0,
                   background: theme === "dark" ? "hsl(var(--body_background))" : "white",
                   zIndex: 10000,
                   borderBottom: theme === "dark" ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid #eee",
-                }}>
-                  <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Post Details</h2>
-                  <button
-                    onClick={handleCloseSidebar}
-                    style={{
-                      padding: "8px",
+            }}>
+              <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Post Details</h2>
+              <button
+                onClick={handleCloseSidebar}
+                style={{
+                  padding: "8px",
                       background: theme === "dark" ? "rgba(255, 255, 255, 0.2)" : "#ddd",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontSize: "18px",
-                      width: "36px",
-                      height: "36px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "18px",
+                  width: "36px",
+                  height: "36px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                       position: "relative",
                       zIndex: 10001,
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
+                }}
+              >
+                ×
+              </button>
+            </div>
                 <div 
                   style={{
-                    flex: 1,
-                    overflowY: "auto",
+              flex: 1,
+              overflowY: "auto",
                     padding: "15px",
                     height: "calc(100vh - 60px)",
                   }}
@@ -1615,15 +1626,15 @@ const GraphHome = () => {
                 >
                   {statusData ? (
                     <>
-                      <div style={{
+              <div style={{
                         marginBottom: "12px",
                       }}>
                         {renderStatus(statusData)}
-                      </div>
-                      <div style={{
+              </div>
+              <div style={{
                         background: theme === "dark" ? "hsl(var(--status_background))" : "#f8f9fa",
-                        padding: "12px",
-                        borderRadius: "8px",
+                padding: "12px",
+                borderRadius: "8px",
                       }}>
                         <h3 style={{ marginTop: "0", marginBottom: "10px" }}>Replies</h3>
                         {loadingStatus ? (
@@ -1636,7 +1647,7 @@ const GraphHome = () => {
                             color: "var(--text_color)"
                           }}>
                             Loading replies...
-                          </div>
+              </div>
                         ) : replies.length > 0 ? (
                           replies.map((reply, index) => (
                             <div key={reply.id}>
@@ -1645,24 +1656,24 @@ const GraphHome = () => {
                                 true, 
                                 index < replies.length-1 && reply.id === replies[index+1].in_reply_to_id
                               )}
-                            </div>
+            </div>
                           ))
                         ) : (
                           <p>No replies yet</p>
                         )}
-                      </div>
+          </div>
                     </>
                   ) : (
                     <p>Loading post details...</p>
-                  )}
-                </div>
+        )}
+            </div>
               </div>
             )}
           </div>
         </div>
       )}
-    </div>
-  );
+        </div>
+    );
 };
 
 export default GraphHome;

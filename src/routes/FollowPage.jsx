@@ -34,7 +34,7 @@ function FollowPage() {
 		try {
 			console.log("fetching");
 			setLoading(true);
-			const response = await APIClient.get(`accounts/${id}/${follow}`, {
+			const response = await APIClient.get(`/accounts/${id}/${follow}`, {
 				params: {
 					instance: currentUser.instance,
 					token: currentUser.token
@@ -43,7 +43,7 @@ function FollowPage() {
 			console.log(response.data);
 			setList(response.data.accounts);
 
-			const tags = await APIClient.get("tags/following", {
+			const tags = await APIClient.get("/tags/following", {
 				params: {
 					instance: currentUser.instance,
 					token: currentUser.token

@@ -32,7 +32,7 @@ function Reply(props){
         event.preventDefault();
         event.stopPropagation();
         try {
-            const response = await APIClient.post("statuses", {
+            const response = await APIClient.post("/statuses", {
                 message: replyText,
                 instance: currentUser.instance,
                 token: currentUser.token,
